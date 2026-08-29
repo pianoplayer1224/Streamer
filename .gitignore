@@ -1,0 +1,19 @@
+# Build output
+.gradle/
+build/
+*.apk
+local.properties
+
+# Signing credentials. Anyone holding these can publish updates as this app.
+keystore.properties
+*.jks
+*.keystore
+
+# Captured traffic and API dumps from the live site. These contain a real student's
+# timetable, name and teachers, so the whole directory is excluded rather than named
+# files -- a future capture saved under a different name must not slip through.
+recon/*
+!recon/sanitize_har.py
+
+# Local crash logs, if ever pulled off a device
+*.crash.txt
