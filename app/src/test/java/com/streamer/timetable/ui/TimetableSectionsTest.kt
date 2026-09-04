@@ -60,7 +60,10 @@ class TimetableSectionsTest {
         // Start of day by default: nothing has finished yet, which is what these
         // tests assumed before the clock existed.
         nowMillis: Long = millisOn(monday, "00:00"),
-    ) = buildSections(events, tab, Feed.entries.toSet(), hideMusBlock, today, nowMillis)
+        weekStartDay: java.time.DayOfWeek = java.time.DayOfWeek.MONDAY,
+    ) = buildSections(
+        events, tab, Feed.entries.toSet(), hideMusBlock, today, nowMillis, weekStartDay,
+    )
 
     private fun counts(
         events: List<Event>,
@@ -590,5 +593,96 @@ class TimetableSectionsTest {
         ).flatMap { lessons(it) }.map { it.event.title }
 
         assertEquals(listOf("Term Starts"), titles)
+    }
+
+    // ---- configurable week start -----------------------------------------
+
+    /**
+     * A Saturday-start week gathers a different seven days.
+     *
+     * Monday 7 Sep sits in the Sat 5 - Fri 11 window, so Saturday 5th is included
+     * where a Monday-start week would have excluded it.
+     */
+    @Test
+    fun thisWeekFollowsTheConfiguredStartDay() {
+        val saturday = monday.minusDays(2)
+        val events = listOf(
+            event(1, date = saturday, start = "09:00", end = "10:00", title = "Sat"),
+            event(2, date = monday, start = "09:00", end = "10:00", title = "Mon"),
+        )
+
+        val mondayWeek = sections(events, tab = TimetableTab.THIS_WEEK)
+            .flatMap { lessons(it) }.map { it.event.title }
+        assertEquals(listOf("Mon"), mondayWeek)
+
+        val saturdayWeek = sections(
+            events,
+            tab = TimetableTab.THIS_WEEK,
+            weekStartDay = java.time.DayOfWeek.SATURDAY,
+        ).flatMap { lessons(it) }.map { it.event.title }
+        assertEquals(listOf("Sat", "Mon"), saturdayWeek)
+    }
+
+    /** The far edge moves too: a Saturday week ends on Friday, excluding the next Sat. */
+    @Test
+    fun saturdayWeekEndsOnFriday() {
+        val events = listOf(
+            event(1, date = monday.plusDays(4), start = "09:00", end = "10:00", title = "Fri"),
+            event(2, date = monday.plusDays(5), start = "09:00", end = "10:00", title = "NextSat"),
+        )
+        val titles = sections(
+            events,
+            tab = TimetableTab.THIS_WEEK,
+            weekStartDay = java.time.DayOfWeek.SATURDAY,
+        ).flatMap { lessons(it) }.map { it.event.title }
+        assertEquals(listOf("Fri"), titles)
+    }
+
+    /**
+     * The heavier week heading is a calendar landmark and must stay on Monday however
+     * the week window is configured.
+     */
+    @Test
+    fun mondayMarkerIsIndependentOfTheWeekStartPreference() {
+        assertTrue(isMondayMarker(monday))
+        assertFalse(isMondayMarker(monday.minusDays(2)))   // Saturday
+        assertFalse(isMondayMarker(monday.plusDays(1)))    // Tuesday
+    }
+
+    /** Chip counts follow the configured week, or they would disagree with the list. */
+    @Test
+    fun countsFollowTheConfiguredWeekStart() {
+        val saturday = monday.minusDays(2)
+        val events = listOf(
+            event(1, date = saturday, start = "09:00", end = "10:00", feed = Feed.INSTRUMENTAL),
+            event(2, date = monday, start = "09:00", end = "10:00", feed = Feed.INSTRUMENTAL),
+        )
+
+        val mondayWeek = countVisibleByFeed(
+            events, TimetableTab.THIS_WEEK, false, monday, millisOn(monday, "00:00"),
+            java.time.DayOfWeek.MONDAY,
+        )
+        assertEquals(1, mondayWeek[Feed.INSTRUMENTAL])
+
+        val saturdayWeek = countVisibleByFeed(
+            events, TimetableTab.THIS_WEEK, false, monday, millisOn(monday, "00:00"),
+            java.time.DayOfWeek.SATURDAY,
+        )
+        assertEquals(2, saturdayWeek[Feed.INSTRUMENTAL])
+    }
+
+    /** Other tabs are unaffected by the week-start preference. */
+    @Test
+    fun weekStartDayDoesNotAffectOtherTabs() {
+        val events = listOf(
+            event(1, date = monday.minusDays(2), start = "09:00", end = "10:00", title = "Sat"),
+            event(2, date = monday, start = "09:00", end = "10:00", title = "Mon"),
+        )
+        val all = sections(
+            events,
+            tab = TimetableTab.ALL,
+            weekStartDay = java.time.DayOfWeek.SATURDAY,
+        ).flatMap { lessons(it) }.map { it.event.title }
+        assertEquals(listOf("Sat", "Mon"), all)
     }
 }

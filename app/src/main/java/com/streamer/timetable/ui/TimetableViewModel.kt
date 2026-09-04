@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.time.DayOfWeek
 import java.time.LocalDate
 
 /** An event opened in the detail sheet, with the clash state the list computed. */
@@ -79,6 +80,9 @@ class TimetableViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _animateWeekScroll = MutableStateFlow(repository.animateWeekScroll())
     val animateWeekScroll: StateFlow<Boolean> = _animateWeekScroll.asStateFlow()
+
+    private val _weekStartDay = MutableStateFlow(repository.weekStartDay())
+    val weekStartDay: StateFlow<DayOfWeek> = _weekStartDay.asStateFlow()
 
     private val _daysBehind = MutableStateFlow(repository.daysBehind())
     val daysBehind: StateFlow<Int> = _daysBehind.asStateFlow()
@@ -290,6 +294,11 @@ class TimetableViewModel(app: Application) : AndroidViewModel(app) {
         _syncIntervalHours.value = hours
         repository.setSyncIntervalHours(hours)
         SyncWorker.schedule(getApplication(), hours)
+    }
+
+    fun setWeekStartDay(day: DayOfWeek) {
+        _weekStartDay.value = day
+        repository.setWeekStartDay(day)
     }
 
     fun setAnimateWeekScroll(animate: Boolean) {

@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import com.streamer.timetable.data.Event
 import com.streamer.timetable.data.Feed
 import kotlinx.coroutines.flow.first
+import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
@@ -129,6 +130,7 @@ fun TimetableScreen(
     hideMusBlock: Boolean,
     today: LocalDate,
     tab: TimetableTab,
+    weekStartDay: DayOfWeek,
     animateFromWeekStart: Boolean,
     scrollToTodayRequests: Int,
     onToggleFeed: (Feed) -> Unit,
@@ -142,18 +144,18 @@ fun TimetableScreen(
     // frequent enough without keeping a ticker alive behind the list.
     val nowMillis = remember(events, tab, today) { effectiveNowMillis(today) }
 
-    val sections = remember(events, tab, enabledFeeds, hideMusBlock, today, nowMillis) {
-        buildSections(events, tab, enabledFeeds, hideMusBlock, today, nowMillis)
+    val sections = remember(events, tab, enabledFeeds, hideMusBlock, today, nowMillis, weekStartDay) {
+        buildSections(events, tab, enabledFeeds, hideMusBlock, today, nowMillis, weekStartDay)
     }
 
     // Scoped to the tab, from the same filters the list uses, so the number on a chip
     // is exactly what that chip contributes here.
-    val feedCounts = remember(events, tab, hideMusBlock, today, nowMillis) {
-        countVisibleByFeed(events, tab, hideMusBlock, today, nowMillis)
+    val feedCounts = remember(events, tab, hideMusBlock, today, nowMillis, weekStartDay) {
+        countVisibleByFeed(events, tab, hideMusBlock, today, nowMillis, weekStartDay)
     }
 
     val todaySection = indexOfFirstDayFrom(sections, today)
-    val weekSection = indexOfFirstDayFrom(sections, weekStart(today))
+    val weekSection = indexOfFirstDayFrom(sections, weekStart(today, weekStartDay))
     val willGlide = animateFromWeekStart && weekSection in 0 until todaySection
 
     // Seeded at its resting place for this tab, so the first frame after a tab
@@ -231,14 +233,15 @@ fun TimetableScreen(
                 contentPadding = PaddingValues(bottom = 24.dp),
             ) {
                 sections.forEach { section ->
-                    val current = isCurrentWeek(section.date, today)
+                    val current = isCurrentWeek(section.date, today, weekStartDay)
 
                     item(key = "header-${section.date}") {
                         DayHeader(
                             date = section.date,
                             isToday = section.date == today,
                             isCurrentWeek = current,
-                            isWeekStart = weekStart(section.date) == section.date,
+                            // Monday regardless of the week-start preference; see isMondayMarker.
+                            isWeekStart = isMondayMarker(section.date),
                         )
                     }
 

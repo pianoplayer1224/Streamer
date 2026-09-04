@@ -15,11 +15,13 @@ import com.streamer.timetable.net.AuthenticationException
 import com.streamer.timetable.net.StreamApi
 import com.streamer.timetable.net.ntlm.NtlmAuthenticator
 import com.streamer.timetable.notify.AlertScheduler
+import com.streamer.timetable.ui.DEFAULT_WEEK_START_DAY
 import com.streamer.timetable.widget.WidgetUpdater
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
 import java.io.IOException
+import java.time.DayOfWeek
 import java.time.LocalDate
 
 /** Default reach of the offline window, either side of today. */
@@ -180,6 +182,21 @@ class SyncRepository(context: Context) {
         prefs.edit { putInt(KEY_SYNC_INTERVAL, hours) }
     }
 
+    /**
+     * Which day the This week tab treats as the start of the week.
+     *
+     * Stored by name rather than ordinal so the value stays readable and survives any
+     * future reordering. An unparseable value falls back rather than throwing.
+     */
+    fun weekStartDay(): DayOfWeek =
+        prefs.getString(KEY_WEEK_START_DAY, null)
+            ?.let { runCatching { DayOfWeek.valueOf(it) }.getOrNull() }
+            ?: DEFAULT_WEEK_START_DAY
+
+    fun setWeekStartDay(day: DayOfWeek) {
+        prefs.edit { putString(KEY_WEEK_START_DAY, day.name) }
+    }
+
     /** Whether opening a tab animates from the week's Monday down to today. */
     fun animateWeekScroll(): Boolean = prefs.getBoolean(KEY_ANIMATE_SCROLL, true)
 
@@ -324,6 +341,7 @@ class SyncRepository(context: Context) {
         const val KEY_HIDE_MUS_BLOCK = "hide_mus_block"
         const val KEY_DEBUG_DATE = "debug_date_override"
         const val KEY_ANIMATE_SCROLL = "animate_week_scroll"
+        const val KEY_WEEK_START_DAY = "week_start_day"
         const val KEY_DAYS_BEHIND = "days_behind"
         const val KEY_DAYS_AHEAD = "days_ahead"
         const val KEY_SYNC_INTERVAL = "sync_interval_hours"

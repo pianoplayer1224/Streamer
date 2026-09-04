@@ -40,7 +40,10 @@ import androidx.compose.ui.unit.dp
 import com.streamer.timetable.sync.DAYS_AHEAD_CHOICES
 import com.streamer.timetable.sync.DAYS_BEHIND_CHOICES
 import com.streamer.timetable.sync.SYNC_INTERVAL_CHOICES
+import java.time.DayOfWeek
 import java.time.LocalDate
+import java.time.format.TextStyle
+import java.util.Locale
 
 /** Pages on the live site worth reaching quickly, taken from its own nav bar. */
 enum class SiteLink(val label: String, val url: String) {
@@ -64,6 +67,7 @@ fun AppDrawer(
     hideMusBlock: Boolean,
     musBlockCount: Int,
     animateWeekScroll: Boolean,
+    weekStartDay: DayOfWeek,
     daysBehind: Int,
     daysAhead: Int,
     syncIntervalHours: Int,
@@ -72,6 +76,7 @@ fun AppDrawer(
     onOpenLink: (SiteLink) -> Unit,
     onToggleMusBlock: (Boolean) -> Unit,
     onToggleAnimateWeekScroll: (Boolean) -> Unit,
+    onSetWeekStartDay: (DayOfWeek) -> Unit,
     onSetWindow: (Int, Int) -> Unit,
     onSetSyncInterval: (Int) -> Unit,
     onOpenNotifications: () -> Unit,
@@ -175,6 +180,36 @@ fun AppDrawer(
 
                     Column(modifier = Modifier.padding(horizontal = 28.dp)) {
                         Spacer(Modifier.size(8.dp))
+                        Text("Week starts on", style = MaterialTheme.typography.labelLarge)
+                        Text(
+                            // The Monday heading is a separate thing and is not
+                            // affected, so say so rather than letting it look broken.
+                            "Sets the seven days the This week tab covers. The bold " +
+                                "Monday heading is unaffected.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Row(
+                            modifier = Modifier
+                                .horizontalScroll(rememberScrollState())
+                                .padding(top = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            DayOfWeek.entries.forEach { day ->
+                                FilterChip(
+                                    selected = day == weekStartDay,
+                                    onClick = { onSetWeekStartDay(day) },
+                                    label = {
+                                        Text(
+                                            day.getDisplayName(TextStyle.SHORT, Locale.getDefault()),
+                                            style = MaterialTheme.typography.labelMedium,
+                                        )
+                                    },
+                                )
+                            }
+                        }
+
+                        Spacer(Modifier.size(12.dp))
                         Text("Offline range", style = MaterialTheme.typography.labelLarge)
                         Text(
                             "How much timetable is kept on the device. Anything " +
@@ -267,10 +302,6 @@ fun AppDrawer(
                     }
 
                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        // Term start, from the "Term Starts" marker in the feed.
-                        TextButton(onClick = {
-                            onSetDebugDate(LocalDate.of(2026, 9, 7))
-                        }) { Text("Jump to 7 Sep") }
                         TextButton(onClick = { onSetDebugDate(null) }) { Text("Reset") }
                     }
 

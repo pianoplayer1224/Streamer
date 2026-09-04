@@ -107,6 +107,7 @@ private fun Root(viewModel: TimetableViewModel = viewModel()) {
     val hideMusBlock by viewModel.hideMusBlock.collectAsStateWithLifecycle()
     val musBlockCount by viewModel.musBlockCount.collectAsStateWithLifecycle()
     val animateWeekScroll by viewModel.animateWeekScroll.collectAsStateWithLifecycle()
+    val weekStartDay by viewModel.weekStartDay.collectAsStateWithLifecycle()
     val scrollToTodayRequests by viewModel.scrollToTodayRequests.collectAsStateWithLifecycle()
     val rules by viewModel.rules.collectAsStateWithLifecycle()
     val diagnostics by viewModel.diagnostics.collectAsStateWithLifecycle()
@@ -201,6 +202,7 @@ private fun Root(viewModel: TimetableViewModel = viewModel()) {
                 hideMusBlock = hideMusBlock,
                 musBlockCount = musBlockCount,
                 animateWeekScroll = animateWeekScroll,
+                weekStartDay = weekStartDay,
                 daysBehind = daysBehind,
                 daysAhead = daysAhead,
                 syncIntervalHours = syncIntervalHours,
@@ -212,6 +214,7 @@ private fun Root(viewModel: TimetableViewModel = viewModel()) {
                 },
                 onToggleMusBlock = viewModel::setHideMusBlock,
                 onToggleAnimateWeekScroll = viewModel::setAnimateWeekScroll,
+                onSetWeekStartDay = viewModel::setWeekStartDay,
                 onSetWindow = viewModel::setWindow,
                 onSetSyncInterval = viewModel::setSyncIntervalHours,
                 onOpenNotifications = {
@@ -381,6 +384,7 @@ private fun Root(viewModel: TimetableViewModel = viewModel()) {
                             hideMusBlock = hideMusBlock,
                             today = today,
                             tab = tabs[page],
+                            weekStartDay = weekStartDay,
                             animateFromWeekStart = animateWeekScroll,
                             scrollToTodayRequests = scrollToTodayRequests,
                             onToggleFeed = viewModel::toggleFeed,

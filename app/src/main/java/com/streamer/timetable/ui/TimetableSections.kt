@@ -86,11 +86,35 @@ private val SCHOOL_START: LocalTime = LocalTime.of(8, 30)
 private val SCHOOL_END: LocalTime = LocalTime.of(16, 30)
 
 /** Monday-start weeks, matching the site's `firstDay: 1`. */
-fun weekStart(date: LocalDate): LocalDate =
-    date.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+/** The day a week is considered to begin on, when the user has not chosen. */
+val DEFAULT_WEEK_START_DAY: DayOfWeek = DayOfWeek.MONDAY
 
-fun isCurrentWeek(date: LocalDate, today: LocalDate): Boolean =
-    weekStart(date) == weekStart(today)
+/**
+ * The first day of [date]'s week.
+ *
+ * [startDay] is configurable because a school week does not always begin where the
+ * calendar says: someone whose week effectively runs Saturday to Friday wants "This
+ * week" to mean that, not Monday to Sunday.
+ */
+fun weekStart(date: LocalDate, startDay: DayOfWeek = DEFAULT_WEEK_START_DAY): LocalDate =
+    date.with(TemporalAdjusters.previousOrSame(startDay))
+
+fun isCurrentWeek(
+    date: LocalDate,
+    today: LocalDate,
+    startDay: DayOfWeek = DEFAULT_WEEK_START_DAY,
+): Boolean = weekStart(date, startDay) == weekStart(today, startDay)
+
+/**
+ * Whether this day carries the heavier week-boundary heading.
+ *
+ * Deliberately fixed to Monday and *not* tied to the configurable week start. The
+ * marker is a calendar landmark -- it says "a new week of the year begins here" --
+ * whereas the week-start preference only decides which seven days the This week tab
+ * gathers. Someone running a Saturday-to-Friday week still wants Monday to read as
+ * the start of the working week within it.
+ */
+fun isMondayMarker(date: LocalDate): Boolean = date.dayOfWeek == DayOfWeek.MONDAY
 
 /**
  * The clock, on whichever day is being displayed.
@@ -122,11 +146,12 @@ fun buildSections(
     hideMusBlock: Boolean,
     today: LocalDate,
     nowMillis: Long,
+    weekStartDay: DayOfWeek = DEFAULT_WEEK_START_DAY,
 ): List<DaySection> {
     val visible = events.asSequence()
         .filter { it.feedType in enabledFeeds }
         .filter { !(hideMusBlock && it.title.equals(MUS_BLOCK_TITLE, ignoreCase = true)) }
-        .filter { matchesTab(it, tab, today, nowMillis) }
+        .filter { matchesTab(it, tab, today, nowMillis, weekStartDay) }
         .toList()
 
     var previousWeek: LocalDate? = null
@@ -135,6 +160,8 @@ fun buildSections(
         .groupBy { LocalDate.parse(it.startDate) }
         .toSortedMap()
         .map { (date, dayEvents) ->
+            // Monday-based like the marker: this is the calendar boundary, not the
+            // user's chosen week window.
             val week = weekStart(date)
             // The first day in the list opens its week rather than breaking from one.
             val newWeek = previousWeek != null && week != previousWeek
@@ -160,9 +187,10 @@ fun countVisibleByFeed(
     hideMusBlock: Boolean,
     today: LocalDate,
     nowMillis: Long,
+    weekStartDay: DayOfWeek = DEFAULT_WEEK_START_DAY,
 ): Map<Feed, Int> = events.asSequence()
     .filter { !(hideMusBlock && it.title.equals(MUS_BLOCK_TITLE, ignoreCase = true)) }
-    .filter { matchesTab(it, tab, today, nowMillis) }
+    .filter { matchesTab(it, tab, today, nowMillis, weekStartDay) }
     .mapNotNull { it.feedType }
     .groupingBy { it }
     .eachCount()
@@ -183,12 +211,13 @@ private fun matchesTab(
     tab: TimetableTab,
     today: LocalDate,
     nowMillis: Long,
+    weekStartDay: DayOfWeek,
 ): Boolean {
     val date = LocalDate.parse(event.startDate)
     val feed = event.feedType ?: return false
 
     return when (tab) {
-        TimetableTab.THIS_WEEK -> isCurrentWeek(date, today)
+        TimetableTab.THIS_WEEK -> isCurrentWeek(date, today, weekStartDay)
         TimetableTab.PREP -> feed == Feed.PREP
         // The date test still matters: an instant such as "Term Starts" has no end
         // to run past, so without it a marker from a past day would linger forever.
