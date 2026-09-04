@@ -14,6 +14,8 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -131,6 +133,30 @@ private fun Root(viewModel: TimetableViewModel = viewModel()) {
     val debugDate by viewModel.debugDate.collectAsStateWithLifecycle()
     val today by viewModel.today.collectAsStateWithLifecycle()
     val selectedEvent by viewModel.selectedEvent.collectAsStateWithLifecycle()
+
+    val tabs = TimetableTab.entries
+    val pagerState = rememberPagerState(
+        initialPage = tabs.indexOf(selectedTab).coerceAtLeast(0),
+        pageCount = { tabs.size },
+    )
+
+    // Tapping a tab drives the pager...
+    LaunchedEffect(selectedTab) {
+        val target = tabs.indexOf(selectedTab)
+        if (target >= 0 && target != pagerState.currentPage) {
+            pagerState.animateScrollToPage(target)
+        }
+    }
+
+    // ...and a settled swipe drives the view model. Keyed on `settledPage` rather
+    // than `currentPage`, which flips at the halfway point: reacting to that would
+    // commit a tab change to a swipe the user then abandons, and would fire the
+    // Upcoming feed toggle for a tab never actually opened.
+    LaunchedEffect(pagerState.settledPage) {
+        val swipedTo = tabs.getOrNull(pagerState.settledPage) ?: return@LaunchedEffect
+        // Guarded: selectTab treats a repeat of the current tab as "scroll to today".
+        if (swipedTo != selectedTab) viewModel.selectTab(swipedTo)
+    }
 
     val snackbarHostState = remember { SnackbarHostState() }
     val drawerState = rememberDrawerState(DrawerValue.Closed)
@@ -300,12 +326,12 @@ private fun Root(viewModel: TimetableViewModel = viewModel()) {
                     )
 
                     if (!showNotifications) {
-                        TabRow(
-                            selectedTabIndex = TimetableTab.entries.indexOf(selectedTab),
-                        ) {
-                            TimetableTab.entries.forEach { tab ->
+                        // Driven by the pager, not the view model, so the indicator
+                        // tracks a swipe in progress instead of jumping when it lands.
+                        TabRow(selectedTabIndex = pagerState.currentPage) {
+                            tabs.forEachIndexed { index, tab ->
                                 Tab(
-                                    selected = tab == selectedTab,
+                                    selected = index == pagerState.currentPage,
                                     onClick = { viewModel.selectTab(tab) },
                                     text = { Text(tab.label) },
                                 )
@@ -340,17 +366,27 @@ private fun Root(viewModel: TimetableViewModel = viewModel()) {
                         onDelete = viewModel::deleteRule,
                     )
 
-                    else -> TimetableScreen(
-                        events = events,
-                        enabledFeeds = enabledFeeds,
-                        hideMusBlock = hideMusBlock,
-                        today = today,
-                        tab = selectedTab,
-                        animateFromWeekStart = animateWeekScroll,
-                        scrollToTodayRequests = scrollToTodayRequests,
-                        onToggleFeed = viewModel::toggleFeed,
-                        onEventClick = viewModel::showDetails,
-                    )
+                    else -> HorizontalPager(
+                        state = pagerState,
+                        modifier = Modifier.fillMaxSize(),
+                        // Keyed by tab name, not the enum itself: pager keys are
+                        // persisted across configuration changes and a plain String
+                        // is unambiguously saveable. Keeping a stable key per tab is
+                        // what lets each page hold its own scroll position.
+                        key = { tabs[it].name },
+                    ) { page ->
+                        TimetableScreen(
+                            events = events,
+                            enabledFeeds = enabledFeeds,
+                            hideMusBlock = hideMusBlock,
+                            today = today,
+                            tab = tabs[page],
+                            animateFromWeekStart = animateWeekScroll,
+                            scrollToTodayRequests = scrollToTodayRequests,
+                            onToggleFeed = viewModel::toggleFeed,
+                            onEventClick = viewModel::showDetails,
+                        )
+                    }
                 }
             }
         }
